@@ -54,7 +54,7 @@ const Sidebar = ({ sidebar, setSidebar }) => {
               end={to === "/ai"}
               onClick={() => setSidebar(false)}
               className={({ isActive }) =>
-                `px-3.5 py-2.5 flex items-center gap-3 rounded-lg transition-all ${
+                `px-3.5 py-2.5 mb-2 flex items-center gap-3 rounded-lg transition-all ${
                   isActive
                     ? "bg-gradient-to-r from-[#0066FF] to-[#6A5ACD] text-white shadow-md"
                     : "text-gray-700 hover:bg-[#FFF7E6] hover:text-[#0066FF]"
