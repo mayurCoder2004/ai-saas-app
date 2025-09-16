@@ -1,5 +1,11 @@
 import React, { useState } from "react";
 import { Edit, Sparkles } from "lucide-react";
+import axios from "axios";
+import { useAuth } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
+import Markdown from "react-markdown";
+
+axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
 
 const WriteArticle = () => {
   const articleLength = [
@@ -10,9 +16,33 @@ const WriteArticle = () => {
 
   const [selectedLength, setSelectedLength] = useState(articleLength[0]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [content, setContent] = useState("");
+  const { getToken } = useAuth();
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    try {
+      setLoading(true);
+      const prompt = `Write an article about ${input} in ${selectedLength.text}`;
+
+      const { data } = await axios.post(
+        `/api/ai/generate-article`,
+        { prompt, length: selectedLength.length },
+        {
+          headers: { Authorization: `Bearer ${await getToken()}` },
+        }
+      );
+
+      if (data.success) {
+        setContent(data.content);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+    setLoading(false);
   };
 
   return (
@@ -59,25 +89,52 @@ const WriteArticle = () => {
         </div>
 
         {/* Button */}
-        <button className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#0066FF] via-[#FF8000] to-[#6A5ACD] text-white px-4 py-3 mt-8 text-sm font-medium rounded-lg cursor-pointer shadow-md hover:shadow-lg hover:opacity-95 transition">
-          <Edit className="w-5" /> Generate Article
+        <button
+          disabled={loading}
+          className="w-full flex justify-center items-center gap-2 
+    bg-gradient-to-r from-[#0066FF] via-[#FF8000] to-[#6A5ACD] 
+    text-white px-4 py-3 mt-8 text-sm font-medium rounded-lg 
+    shadow-md transition
+    hover:shadow-lg hover:opacity-95 
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:opacity-50"
+        >
+          {loading ? (
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          ) : (
+            <Edit className="w-5" />
+          )}
+          {loading ? "Generating..." : "Generate Article"}
         </button>
       </form>
 
       {/* Right Col */}
       <div className="w-full max-w-lg p-6 bg-white rounded-2xl shadow-lg border border-gray-100 min-h-[380px] max-h-[600px] transition hover:shadow-xl flex flex-col">
         <div className="flex items-center gap-3 mb-4">
-          <Edit className="w-5 h-5 text-[#FFD033]" />
+          {loading ? (
+            <span className="w-4 h-4 my-1 rounded-full border-2 border-t-transparent animate-spin"></span>
+          ) : (
+            <Edit className="w-5 h-5 text-[#FFD033]" />
+          )}
+
           <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#FF8000] via-[#FFD033] to-[#6A5ACD] bg-clip-text text-transparent">
             Generated Article
           </h1>
         </div>
-        <div className="flex-1 flex justify-center items-center">
-          <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
-            <Edit className="w-10 h-10 text-[#0066FF]" />
-            <p>Enter a topic and click "Generate Article" to get started</p>
+
+        {!content ? (
+          <div className="flex-1 flex justify-center items-center">
+            <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
+              <Edit className="w-10 h-10 text-[#0066FF]" />
+              <p>Enter a topic and click "Generate Article" to get started</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 h-full overflow-y-scroll text-sm text-slate-600">
+            <div className=".reset-tw">
+              <Markdown>{content}</Markdown>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
