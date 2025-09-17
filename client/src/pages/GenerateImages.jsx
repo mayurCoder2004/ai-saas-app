@@ -1,5 +1,11 @@
 import { Image, Sparkles } from "lucide-react";
 import React, { useState } from "react";
+import toast from "react-hot-toast";
+import Markdown from "react-markdown";
+import axios from "axios";
+import { useAuth } from "@clerk/clerk-react";
+
+axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
 
 const GenerateImages = () => {
   const ImageStyle = [
@@ -16,9 +22,32 @@ const GenerateImages = () => {
   const [selectedStyle, setSelectedStyle] = useState(ImageStyle[0]);
   const [input, setInput] = useState("");
   const [publish, setPublish] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [content, setContent] = useState("");
+  const { getToken } = useAuth();
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    try {
+      setLoading(true);
+
+      const prompt = `Generate an image of ${input} in the style ${selectedStyle}`;
+
+      const { data } = await axios.post(
+        "/api/ai/generate-image",
+        { prompt, publish },
+        { headers: { Authorization: `Bearer ${await getToken()}` } } // also removed the extra ":" after Bearer
+      );
+
+      if (data.success) {
+        setContent(data.content);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+    setLoading(false);
   };
   return (
     <div className="h-full overflow-y-scroll p-6 flex flex-col lg:flex-row items-start gap-6 text-slate-700">
@@ -35,7 +64,9 @@ const GenerateImages = () => {
         </div>
 
         {/* Topic */}
-        <p className="mt-6 text-sm font-medium text-gray-700">Describe Your Image</p>
+        <p className="mt-6 text-sm font-medium text-gray-700">
+          Describe Your Image
+        </p>
         <textarea
           onChange={(e) => setInput(e.target.value)}
           value={input}
@@ -65,8 +96,13 @@ const GenerateImages = () => {
 
         <div className="my-6 flex items-center gap-2">
           <label className="relative cursor-pointer">
-            <input type="checkbox" onChange={(e) => setPublish(e.target.checked)} checked={publish} className="sr-only peer" />
-            
+            <input
+              type="checkbox"
+              onChange={(e) => setPublish(e.target.checked)}
+              checked={publish}
+              className="sr-only peer"
+            />
+
             <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-green-500 transition"></div>
 
             <span className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition peer-checked:translate-x-4"></span>
@@ -75,8 +111,26 @@ const GenerateImages = () => {
         </div>
 
         {/* Button */}
-        <button className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#0066FF] via-[#FF8000] to-[#6A5ACD] text-white px-4 py-3 mt-8 text-sm font-medium rounded-lg cursor-pointer shadow-md hover:shadow-lg hover:opacity-95 transition">
-          <Image className="w-5" /> Generate Image
+        <button
+          disabled={loading}
+          className={`w-full flex justify-center items-center gap-2 px-4 py-3 mt-8 text-sm font-medium rounded-lg shadow-md transition 
+    ${
+      loading
+        ? "bg-gradient-to-r from-[#0066FF] via-[#FF8000] to-[#6A5ACD] text-white opacity-70 cursor-not-allowed"
+        : "bg-gradient-to-r from-[#0066FF] via-[#FF8000] to-[#6A5ACD] text-white cursor-pointer hover:shadow-lg hover:opacity-95"
+    }`}
+        >
+          {loading ? (
+            <>
+              <span className="w-4 h-4 my-1 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+              Generating...
+            </>
+          ) : (
+            <>
+              <Image className="w-5" />
+              Generate Image
+            </>
+          )}
         </button>
       </form>
 
@@ -88,12 +142,19 @@ const GenerateImages = () => {
             Generated Titles
           </h1>
         </div>
-        <div className="flex-1 flex justify-center items-center">
-          <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
-            <Image className="w-10 h-10 text-[#0066FF]" />
-            <p>Enter a topic and click "Generate Title" to get started</p>
+
+        {!content ? (
+          <div className="flex-1 flex justify-center items-center">
+            <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
+              <Image className="w-10 h-10 text-[#0066FF]" />
+              <p>Enter a topic and click "Generate Title" to get started</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 h-full overflow-y-scroll text-sm text-slate-600">
+            <img src={content} alt="image" className="w-full h-full" />
+          </div>
+        )}
       </div>
     </div>
   );

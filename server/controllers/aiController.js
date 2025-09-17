@@ -134,7 +134,7 @@ export const generateImage = async (req, res) => {
       publish ?? false
     })`;
 
-    res.json({ successs: true, content: secure_url });
+    res.json({ success: true, content: secure_url });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
