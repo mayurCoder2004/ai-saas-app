@@ -80,7 +80,7 @@ export const generateBlogTitle = async (req, res) => {
         },
       ],
       temperature: 0.7,
-      max_tokens: length,
+      max_tokens: 300,
     });
 
     const content = response.choices[0].message.content;
@@ -93,7 +93,7 @@ export const generateBlogTitle = async (req, res) => {
         },
       });
     }
-    res.json({ successs: true, content });
+    res.json({ success: true, content });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
