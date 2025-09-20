@@ -252,7 +252,7 @@ export const resumeReview = async (req, res) => {
       VALUES (${userId}, 'Review the uploaded resume', ${content}, 'resume-review')
     `;
 
-    res.json({ successs: true, content: content });
+    res.json({ success: true, content: content });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });

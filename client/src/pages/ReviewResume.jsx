@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import axios from "axios";
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
+import Markdown from 'react-markdown';
 
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
 
@@ -81,12 +82,25 @@ const ReviewResume = () => {
             Analysis Results
           </h1>
         </div>
-        <div className="flex-1 flex justify-center items-center">
-          <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
-            <FileText className="w-10 h-10 text-[#0066FF]" />
-            <p>Upload a resume and click "Review Resume" to get started</p>
-          </div>
-        </div>
+        {
+          !content ?
+          (
+            <div className="flex-1 flex justify-center items-center">
+              <div className="text-sm flex flex-col items-center gap-4 text-gray-400">
+                <FileText className="w-10 h-10 text-[#0066FF]" />
+                <p>Upload a resume and click "Review Resume" to get started</p>
+              </div>
+            </div>
+          )
+          :
+          (
+            <div className='mt-3 h-full overflow-y-scroll text-sm text-slate-600'>
+              <div className='reset-tw'>
+                <Markdown>{content}</Markdown>
+              </div>
+            </div>
+          )
+        }
       </div>
     </div>
   )
