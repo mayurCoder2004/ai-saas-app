@@ -1,15 +1,33 @@
-import OpenAI from "openai";
 import sql from "../configs/db.js";
 import { clerkClient } from "@clerk/express";
 import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import pdf from "pdf-parse/lib/pdf-parse.js";
+import FormData from "form-data";
 
-const AI = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-});
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const MISTRAL_MODEL = "mistralai/mistral-7b-instruct:free";
+
+// Helper function to call Mistral AI via OpenRouter
+const callMistralAI = async (prompt, max_tokens = 1024, temperature = 0.7) => {
+  const response = await axios.post(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      model: MISTRAL_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature,
+      max_tokens: Math.min(max_tokens, 1024),
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      },
+    }
+  );
+
+  return response.data.choices[0].message.content;
+};
 
 export const generateArticle = async (req, res) => {
   try {
@@ -21,23 +39,12 @@ export const generateArticle = async (req, res) => {
     if (plan !== "premium" && free_usage >= 10) {
       return res.json({
         success: false,
-        message: "Limit reached. Uprade to continue.",
+        message: "Limit reached. Upgrade to continue.",
       });
     }
 
-    const response = await AI.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: length,
-    });
+    const content = await callMistralAI(prompt, length);
 
-    const content = response.choices[0].message.content;
     await sql`
       INSERT INTO creations (user_id, prompt, content, type) 
       VALUES (${userId}, ${prompt}, ${content}, 'article')
@@ -45,11 +52,10 @@ export const generateArticle = async (req, res) => {
 
     if (plan !== "premium") {
       await clerkClient.users.updateUserMetadata(userId, {
-        privateMetadata: {
-          free_usage: free_usage + 1,
-        },
+        privateMetadata: { free_usage: free_usage + 1 },
       });
     }
+
     res.json({ success: true, content });
   } catch (error) {
     console.log(error.message);
@@ -67,32 +73,23 @@ export const generateBlogTitle = async (req, res) => {
     if (plan !== "premium" && free_usage >= 10) {
       return res.json({
         success: false,
-        message: "Limit reached. Uprade to continue.",
+        message: "Limit reached. Upgrade to continue.",
       });
     }
 
-    const response = await AI.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 300,
-    });
+    const content = await callMistralAI(prompt, 300);
 
-    const content = response.choices[0].message.content;
-    await sql` INSERT INTO  creations (user_id, prompt, content, type) VALUEs (${userId}, ${prompt}, ${content}, 'blog-title')`;
+    await sql`
+      INSERT INTO creations (user_id, prompt, content, type)
+      VALUES (${userId}, ${prompt}, ${content}, 'blog-title')
+    `;
 
     if (plan !== "premium") {
       await clerkClient.users.updateUserMetadata(userId, {
-        privateMetadata: {
-          free_usage: free_usage + 1,
-        },
+        privateMetadata: { free_usage: free_usage + 1 },
       });
     }
+
     res.json({ success: true, content });
   } catch (error) {
     console.log(error.message);
@@ -130,9 +127,10 @@ export const generateImage = async (req, res) => {
     ).toString("base64")}`;
     const { secure_url } = await cloudinary.uploader.upload(base64Image);
 
-    await sql` INSERT INTO  creations (user_id, prompt, content, type, publish) VALUEs (${userId}, ${prompt}, ${secure_url}, 'image', ${
-      publish ?? false
-    })`;
+    await sql`
+      INSERT INTO creations (user_id, prompt, content, type, publish)
+      VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})
+    `;
 
     res.json({ success: true, content: secure_url });
   } catch (error) {
@@ -155,12 +153,7 @@ export const removeImageBackground = async (req, res) => {
     }
 
     const { secure_url } = await cloudinary.uploader.upload(image.path, {
-      transformation: [
-        {
-          effect: "background_removal",
-          background_removal: "remove_the_background",
-        },
-      ],
+      transformation: [{ effect: "background_removal", background_removal: "remove_the_background" }],
     });
 
     await sql`
@@ -190,7 +183,6 @@ export const removeImageObject = async (req, res) => {
     }
 
     const { public_id } = await cloudinary.uploader.upload(image.path);
-
     const imageUrl = cloudinary.url(public_id, {
       transformation: [{ effect: `gen_remove:${object}` }],
       resource_type: "image",
@@ -224,7 +216,7 @@ export const resumeReview = async (req, res) => {
     if (resume.size > 5 * 1024 * 1024) {
       return res.json({
         success: false,
-        message: "Resume file size ezceeds allowed sie (5MB).",
+        message: "Resume file size exceeds allowed size (5MB).",
       });
     }
 
@@ -233,26 +225,14 @@ export const resumeReview = async (req, res) => {
 
     const prompt = `Review the following resume and provide constructive feedback on its strengths, weaknesses, and areas for improvement. Resume Content: \n\n ${pdfData.text}`;
 
-    const response = await AI.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-
-    const content = response.choices[0].message.content;
+    const content = await callMistralAI(prompt, 1000);
 
     await sql`
       INSERT INTO creations (user_id, prompt, content, type)
       VALUES (${userId}, 'Review the uploaded resume', ${content}, 'resume-review')
     `;
 
-    res.json({ success: true, content: content });
+    res.json({ success: true, content });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
