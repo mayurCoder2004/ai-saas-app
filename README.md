@@ -130,11 +130,6 @@ VITE_BASE_URL=http://localhost:5000
    - Remove backgrounds/objects from images
 3. View, download, or share your creations.
 
-### Screenshots
-Add screenshots of the dashboard, AI tools, and results here.
-
----
-
 ## API Endpoints
 
 ### Authentication
